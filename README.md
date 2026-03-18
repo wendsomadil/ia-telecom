@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📡 Assistance IA Télécom
 
 Chatbot intelligent utilisant l'approche **RAG (Retrieval-Augmented Generation)** et l'API **Google Gemini 2.5 Flash** pour répondre à des questions contextuelles basées sur la réglementation des télécommunications au Burkina Faso.
@@ -113,3 +114,6 @@ fid/
 - La première exécution de `init_index.py` peut prendre quelques minutes selon le volume de PDF
 - Les réponses sont limitées à 400 mots pour rester concises
 - Le fichier `.env` ne doit jamais être partagé ou versionné
+=======
+# ia-telecom
+>>>>>>> b868d66a9f47f0b14460101ea07a764c6a0834a6
