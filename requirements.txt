@@ -1,0 +1,28 @@
+# requirements.txt
+# Assistance IA Télécom - Dépendances
+
+# Framework web
+streamlit>=1.30.0
+flask>=3.0.0
+gunicorn>=21.2.0
+
+# API Gemini (nouveau SDK)
+google-genai>=1.0.0
+
+# RAG & Embeddings
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.0
+
+# Extraction PDF
+PyMuPDF>=1.23.0
+
+# Fichiers Excel
+openpyxl>=3.1.0
+
+# Utilitaires
+python-dotenv>=1.0.0
+pandas==2.2.3
+gTTS>=2.4.0
+
+# Numpy (compatibilité)
+numpy<2.3

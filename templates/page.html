@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+    <title>{{ title }}</title>
+    <link rel="icon" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Topbar -->
+    <div class="topbar">
+        <span class="topbar-title">📡 {{ title }}</span>
+        <button class="hamburger" onclick="toggleMenu()">☰</button>
+    </div>
+
+    <!-- Menu -->
+    <div id="menu-overlay" class="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="menu" class="menu-panel">
+        <div class="menu-profile">
+            <div class="menu-avatar">{{ user.prenom[0] }}</div>
+            <div><strong>{{ user.prenom }} {{ user.nom }}</strong><br><span class="menu-email">{{ user.email }}</span></div>
+        </div>
+        <hr>
+        <a href="/chat" class="menu-item {% if page=='chat' %}active{% endif %}">💬 Chat</a>
+        <a href="/history" class="menu-item {% if page=='history' %}active{% endif %}">📚 Historique</a>
+        <a href="/settings" class="menu-item {% if page=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+        <a href="/feedback" class="menu-item {% if page=='feedback' %}active{% endif %}">📝 Feedback</a>
+        <a href="/about" class="menu-item {% if page=='about' %}active{% endif %}">ℹ️ À propos</a>
+        <hr>
+        <button class="menu-item" onclick="toggleTheme()">🌙 Thème</button>
+        <a href="/logout" class="menu-item logout">🚪 Déconnexion</a>
+    </div>
+
+    <div class="page-content">
+
+    {% if page == 'history' %}
+        <div class="page-header">
+            <h2>📚 Historique</h2>
+            <p>Vos conversations passées</p>
+        </div>
+        <button class="btn-primary full-w" onclick="newConv()">➕ Nouvelle conversation</button>
+        {% if convs %}
+            {% for c in convs %}
+            <div class="conv-card">
+                <div class="conv-title">{{ c.title }}</div>
+                <div class="conv-date">{{ c.updated_at[:16] if c.updated_at else '' }}</div>
+                <div class="conv-actions">
+                    <a href="/chat?conv_id={{ c.id }}" class="btn-sm">Ouvrir</a>
+                    <button class="btn-sm danger" onclick="delConv({{ c.id }})">🗑</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty">💬<br>Aucune conversation</div>
+        {% endif %}
+
+    {% elif page == 'settings' %}
+        <div class="page-header">
+            <h2>⚙️ Paramètres</h2>
+        </div>
+        <div class="settings-profile">
+            <div class="menu-avatar big">{{ user.prenom[0] }}</div>
+            <div><strong>{{ user.prenom }} {{ user.nom }}</strong><br><span class="menu-email">{{ user.email }}</span></div>
+        </div>
+        <h3>🎨 Apparence</h3>
+        <button class="btn-secondary full-w" onclick="toggleTheme()">🌙 Basculer le thème</button>
+        <h3>📂 Ajouter des PDF</h3>
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" id="pdf-input" accept=".pdf" multiple>
+            <button type="button" class="btn-primary" onclick="uploadPdfs()">Envoyer</button>
+        </form>
+        <div id="upload-msg" class="success-msg"></div>
+
+    {% elif page == 'feedback' %}
+        <div class="page-header">
+            <h2>📝 Feedback</h2>
+            <p>Votre avis nous aide à améliorer l'assistant</p>
+        </div>
+        <label class="fb-label">Satisfaction</label>
+        <div class="stars" id="stars">
+            <span onclick="setStar(1)">⭐</span><span onclick="setStar(2)">⭐</span><span onclick="setStar(3)">⭐</span>
+            <span onclick="setStar(4)">☆</span><span onclick="setStar(5)">☆</span>
+        </div>
+        <textarea id="fb-text" placeholder="Votre commentaire..." rows="4"></textarea>
+        <button class="btn-primary full-w" onclick="sendFeedback()">📨 Envoyer</button>
+        <div id="fb-msg" class="success-msg"></div>
+
+    {% elif page == 'about' %}
+        <div class="page-header">
+            <h2>ℹ️ À propos</h2>
+        </div>
+        <div class="about-card">
+            <img src="/static/ia_telecom.png" class="about-logo">
+            <h3>Assistance IA Télécom</h3>
+            <span class="badge">Version 2.0</span>
+        </div>
+        <div class="about-section">
+            <h4>🎯 Description</h4>
+            <p>Chatbot RAG utilisant <strong>FAISS</strong> + <strong>Gemini 2.5 Flash</strong> pour la réglementation télécom au Burkina Faso.</p>
+        </div>
+        <div class="about-section">
+            <h4>🔧 Technologies</h4>
+            <p>Flask · FAISS · Sentence Transformers · Gemini 2.5 Flash · PyMuPDF · SQLite · gTTS · Web Speech API</p>
+        </div>
+        <div class="about-section">
+            <h4>📊 Pipeline RAG</h4>
+            <p>1. Extraction PDF → 2. Chunking → 3. Embeddings → 4. FAISS → 5. Top 5 → 6. Gemini</p>
+        </div>
+        <div class="about-section">
+            <h4>👨‍💻 Réalisation</h4>
+            <p>Projet de mémoire — 2024/2025</p>
+        </div>
+    {% endif %}
+
+    </div>
+
+    <script>
+    function toggleMenu(){ document.getElementById('menu').classList.toggle('open'); document.getElementById('menu-overlay').classList.toggle('open'); }
+    function toggleTheme(){ document.body.classList.toggle('dark'); localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light'); }
+    if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+
+    async function newConv(){ const r=await fetch('/new_conv',{method:'POST'}); const d=await r.json(); if(d.ok) window.location.href='/chat?conv_id='+d.conv_id; }
+    async function delConv(id){ if(confirm('Supprimer ?')){ await fetch('/delete_conv/'+id,{method:'POST'}); location.reload(); }}
+
+    // Feedback
+    let starVal=3;
+    function setStar(n){ starVal=n; const s=document.querySelectorAll('#stars span'); s.forEach((e,i)=>e.innerText=i<n?'⭐':'☆'); }
+    async function sendFeedback(){
+        const fb=document.getElementById('fb-text').value;
+        if(!fb){alert('Écrivez un commentaire');return;}
+        await fetch('/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({satisfaction:starVal,feedback:fb})});
+        document.getElementById('fb-msg').innerText='✅ Merci pour votre retour !';
+        document.getElementById('fb-text').value='';
+    }
+
+    // Upload
+    async function uploadPdfs(){
+        const files=document.getElementById('pdf-input').files;
+        if(!files.length) return;
+        const fd=new FormData();
+        for(let f of files) fd.append('pdfs',f);
+        const r=await fetch('/upload_pdf',{method:'POST',body:fd});
+        const d=await r.json();
+        document.getElementById('upload-msg').innerText=d.count+' fichier(s) ajouté(s). Relancez init_index.py';
+    }
+    </script>
+</body>
+</html>

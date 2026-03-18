@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>{{ title }}</title>
+    <link rel="icon" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
+    <!-- Topbar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <span class="topbar-title">📡 {{ title }}</span>
+            <span class="online-badge">● En ligne</span>
+        </div>
+        <button class="hamburger" onclick="toggleMenu()">☰</button>
+    </div>
+
+    <!-- Menu overlay -->
+    <div id="menu-overlay" class="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="menu" class="menu-panel">
+        <div class="menu-profile">
+            <div class="menu-avatar">{{ user.prenom[0] }}</div>
+            <div>
+                <strong>{{ user.prenom }} {{ user.nom }}</strong><br>
+                <span class="menu-email">{{ user.email }}</span>
+            </div>
+        </div>
+        <hr>
+        <a href="/chat" class="menu-item {% if page=='chat' %}active{% endif %}">💬 Chat</a>
+        <a href="/history" class="menu-item {% if page=='history' %}active{% endif %}">📚 Historique</a>
+        <a href="/settings" class="menu-item {% if page=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+        <a href="/feedback" class="menu-item {% if page=='feedback' %}active{% endif %}">📝 Feedback</a>
+        <a href="/about" class="menu-item {% if page=='about' %}active{% endif %}">ℹ️ À propos</a>
+        <hr>
+        <button class="menu-item" onclick="toggleTheme()">🌙 Thème</button>
+        <a href="/logout" class="menu-item logout">🚪 Déconnexion</a>
+    </div>
+
+    <!-- Chat area -->
+    <div id="messages" class="messages">
+        {% if not messages %}
+        <div class="welcome">
+            <img src="/static/ia_telecom.png" class="welcome-logo" alt="Logo">
+            <h2>Comment puis-je vous aider ?</h2>
+            <p>Posez vos questions sur la réglementation des<br>télécommunications au Burkina Faso</p>
+            <div class="suggestions">
+                <button class="chip" onclick="sendSuggestion('Conditions d\'une licence télécom au Burkina Faso')">📋 Licence</button>
+                <button class="chip" onclick="sendSuggestion('Quelles sont les obligations des opérateurs télécom')">📡 Opérateurs</button>
+                <button class="chip" onclick="sendSuggestion('Quelles sanctions sont prévues par la loi')">⚖️ Sanctions</button>
+            </div>
+        </div>
+        {% else %}
+            {% for msg in messages %}
+            <div class="msg-row {% if msg.role=='user' %}user-row{% else %}bot-row{% endif %}">
+                {% if msg.role=='assistant' %}<div class="msg-avatar">📡</div>{% endif %}
+                <div class="msg-content">
+                    <div class="msg-bubble {% if msg.role=='user' %}user-bubble{% else %}bot-bubble{% endif %}">{% if msg.role=='assistant' %}{{ msg.content|md|safe }}{% else %}{{ msg.content }}{% endif %}</div>
+                    <div class="msg-meta">
+                        <span class="msg-time">{{ msg.created_at[11:16] if msg.created_at else '' }}</span>
+                        {% if msg.role=='assistant' %}<button class="copy-btn" onclick="copyText(this)" data-text="{{ msg.content|e }}">📋</button>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if msg.role=='assistant' and msg.audio %}
+            <div class="audio-row">
+                <audio controls src="{{ msg.audio }}"></audio>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Input bar -->
+    <div class="input-bar">
+        <input id="qi" type="text" placeholder="Posez votre question ici..." autocomplete="off">
+        <button id="send-btn" onclick="if(!listening)send(document.getElementById('qi').value)">
+            <svg id="ic-send" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <svg id="ic-mic" width="20" height="20" viewBox="0 0 24 24" fill="white" style="display:none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" stroke-width="2" fill="none"/><line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2"/></svg>
+        </button>
+    </div>
+    <div id="status" class="status-hint"></div>
+
+    <script>
+    let convId = {{ conv_id|tojson }};
+    const msgBox = document.getElementById('messages');
+    const inp = document.getElementById('qi');
+    const btn = document.getElementById('send-btn');
+    const stat = document.getElementById('status');
+    const icS = document.getElementById('ic-send');
+    const icM = document.getElementById('ic-mic');
+    let timer=null, isLong=false, rec=null, listening=false;
+
+    // Scroll to bottom
+    function scrollBottom(){ msgBox.scrollTop = msgBox.scrollHeight; }
+    scrollBottom();
+
+    // Menu
+    function toggleMenu(){
+        document.getElementById('menu').classList.toggle('open');
+        document.getElementById('menu-overlay').classList.toggle('open');
+    }
+
+    // Theme
+    function toggleTheme(){
+        document.body.classList.toggle('dark');
+        localStorage.setItem('theme', document.body.classList.contains('dark')?'dark':'light');
+    }
+    if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+
+    // Send message
+    async function send(text){
+        text=(text||'').trim();
+        if(!text) return;
+        inp.value='';
+        console.log('Sending:', text, 'conv:', convId);
+
+        // Add user bubble
+        addBubble(text, 'user');
+        hideWelcome();
+
+        // Show typing
+        const typing = addTyping();
+
+        try {
+            const res = await fetch('/ask', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({query:text, conv_id:convId})
+            });
+            console.log('Response status:', res.status);
+            const data = await res.json();
+            console.log('Response data:', data);
+            typing.remove();
+
+            if(data.ok){
+                convId = data.conv_id;
+                addBubble(data.response, 'assistant', data.audio);
+                // Update URL
+                history.replaceState(null,'','/chat?conv_id='+convId);
+            } else {
+                addBubble('❌ ' + (data.error||'Erreur'), 'assistant');
+            }
+        } catch(e){
+            typing.remove();
+            addBubble('❌ Erreur réseau', 'assistant');
+        }
+    }
+
+    function addBubble(text, role, audioUrl){
+        const row = document.createElement('div');
+        row.className = 'msg-row ' + (role==='user'?'user-row':'bot-row');
+        let html = '';
+        if(role==='assistant') html += '<div class="msg-avatar">📡</div>';
+        
+        // Convert markdown
+        let content = text;
+        if(role==='assistant'){
+            content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            content = content.replace(/^\d+\.\s/gm, function(m){ return '<br>'+m; });
+            content = content.replace(/^[-•]\s/gm, function(m){ return '<br>'+m; });
+            content = content.replace(/\n/g, '<br>');
+        }
+
+        // Time
+        const now = new Date();
+        const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+        
+        html += '<div class="msg-content">';
+        html += '<div class="msg-bubble '+(role==='user'?'user-bubble':'bot-bubble')+'" id="bubble-'+Date.now()+'">';
+        if(role==='assistant') html += '<span class="typing-target"></span>';
+        else html += content;
+        html += '</div>';
+        html += '<div class="msg-meta"><span class="msg-time">'+time+'</span>';
+        if(role==='assistant') html += '<button class="copy-btn" onclick="copyText(this)" data-text="'+text.replace(/"/g,'&quot;')+'">📋</button>';
+        html += '</div></div>';
+        
+        row.innerHTML = html;
+        msgBox.appendChild(row);
+
+        // Typing animation for bot
+        if(role==='assistant'){
+            const target = row.querySelector('.typing-target');
+            typeText(target, content, 0);
+        }
+
+        if(audioUrl && role==='assistant'){
+            const ar = document.createElement('div');
+            ar.className = 'audio-row';
+            ar.innerHTML = '<audio controls src="'+audioUrl+'"></audio>';
+            msgBox.appendChild(ar);
+        }
+        scrollBottom();
+    }
+
+    // Typing animation word by word
+    function typeText(el, html, i){
+        // Split by spaces but keep HTML tags intact
+        const words = html.split(/(?=<)|(\s+)/).filter(Boolean);
+        let current = '';
+        let idx = 0;
+        function next(){
+            if(idx >= words.length){ scrollBottom(); return; }
+            current += words[idx];
+            el.innerHTML = current;
+            idx++;
+            scrollBottom();
+            // Faster for tags, slower for words
+            const delay = words[idx-1].startsWith('<') ? 0 : 25;
+            setTimeout(next, delay);
+        }
+        next();
+    }
+
+    // Copy button
+    function copyText(btn){
+        const text = btn.getAttribute('data-text');
+        navigator.clipboard.writeText(text).then(()=>{
+            btn.innerText='✅'; setTimeout(()=>{btn.innerText='📋';},1500);
+        });
+    }
+
+    function addTyping(){
+        const el = document.createElement('div');
+        el.className = 'msg-row bot-row';
+        el.innerHTML = '<div class="msg-avatar">📡</div><div class="msg-bubble bot-bubble typing"><span></span><span></span><span></span></div>';
+        msgBox.appendChild(el);
+        scrollBottom();
+        return el;
+    }
+
+    function hideWelcome(){
+        const w = document.querySelector('.welcome');
+        if(w) w.style.display='none';
+    }
+
+    function sendSuggestion(text){ send(text); }
+
+    // Enter key
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); send(inp.value); }});
+
+    // Long press mic
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(SR){
+        rec = new SR(); rec.lang='fr-FR'; rec.continuous=false; rec.interimResults=false;
+        rec.onresult = e=>{ const t=e.results[0][0].transcript; stopMic(); stat.innerText='✅ '+t; stat.style.color='#10b981'; setTimeout(()=>{send(t);stat.innerText='';},300); };
+        rec.onerror = ()=>{ stopMic(); stat.innerText='Erreur, réessayez'; stat.style.color='#ef4444'; setTimeout(()=>{stat.innerText='';},2000); };
+        rec.onend = ()=>{ if(listening) stopMic(); };
+    }
+
+    btn.addEventListener('pointerdown', e=>{ e.preventDefault(); isLong=false; timer=setTimeout(()=>{isLong=true;startMic();},500); });
+    btn.addEventListener('pointerup', e=>{ e.preventDefault(); clearTimeout(timer); if(!isLong&&!listening) send(inp.value); else if(listening) rec.stop(); });
+    btn.addEventListener('pointerleave', ()=>clearTimeout(timer));
+    btn.addEventListener('contextmenu', e=>e.preventDefault());
+
+    function startMic(){
+        if(!rec){stat.innerText='Micro non supporté';return;}
+        listening=true; rec.start();
+        btn.style.background='#ef4444'; btn.style.boxShadow='0 0 0 6px rgba(239,68,68,0.2)';
+        icS.style.display='none'; icM.style.display='block';
+        stat.innerText='🔴 Parlez maintenant...'; stat.style.color='#ef4444';
+    }
+
+    function stopMic(){
+        listening=false;
+        btn.style.background=''; btn.style.boxShadow='';
+        icS.style.display='block'; icM.style.display='none';
+    }
+
+    // Hint
+    setTimeout(()=>{stat.innerText='Maintenez pour dicter 🎤';stat.style.color='#9490ad';setTimeout(()=>{stat.innerText='';},3500);},800);
+    </script>
+</body>
+</html>

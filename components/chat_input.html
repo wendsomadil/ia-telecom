@@ -1,0 +1,144 @@
+<div id="bar" style="
+    display:flex;align-items:center;gap:8px;
+    padding:6px 6px 6px 16px;
+    background:#fff;border:1.5px solid #e4e2ec;border-radius:24px;
+    box-shadow:0 4px 20px rgba(27,19,64,0.08);
+    font-family:'DM Sans',-apple-system,sans-serif;
+    max-width:100%;box-sizing:border-box;
+">
+    <input id="qi" type="text" placeholder="Posez votre question ici..."
+        style="flex:1;border:none;outline:none;font-size:16px;
+        background:transparent;color:#1b1340;font-family:inherit;
+        padding:8px 0;min-width:0;"
+    />
+    <button id="btn" style="
+        width:44px;height:44px;border-radius:50%;border:none;
+        background:linear-gradient(135deg,#5b4cdb,#8b7ff5);
+        color:white;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;
+        box-shadow:0 3px 12px rgba(91,76,219,0.3);
+        transition:all 0.2s;touch-action:none;
+    ">
+        <svg id="icSend" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        <svg id="icMic" width="20" height="20" viewBox="0 0 24 24" fill="white" style="display:none">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" stroke-width="2" fill="none"/>
+            <line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2"/>
+        </svg>
+    </button>
+</div>
+<div id="status" style="text-align:center;font-size:12px;margin-top:5px;height:18px;
+    font-family:'DM Sans',sans-serif;color:#9490ad;transition:all 0.2s;">
+</div>
+
+<script>
+const btn=document.getElementById('btn'),
+      inp=document.getElementById('qi'),
+      bar=document.getElementById('bar'),
+      stat=document.getElementById('status'),
+      icS=document.getElementById('icSend'),
+      icM=document.getElementById('icMic');
+
+let timer=null,isLong=false,rec=null,listening=false;
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+    rec=new SR();
+    rec.lang='fr-FR';
+    rec.continuous=false;
+    rec.interimResults=false;
+    rec.onresult=function(e){
+        const t=e.results[0][0].transcript;
+        stopMic();
+        stat.innerText='Envoi: '+t;
+        stat.style.color='#10b981';
+        setTimeout(function(){ send(t); },300);
+    };
+    rec.onerror=function(){
+        stopMic();
+        stat.innerText='Erreur, ressayez';
+        stat.style.color='#ef4444';
+        setTimeout(function(){stat.innerText='';},2000);
+    };
+    rec.onend=function(){ if(listening) stopMic(); };
+}
+
+inp.addEventListener('focus',function(){bar.style.borderColor='#5b4cdb';});
+inp.addEventListener('blur',function(){bar.style.borderColor='#e4e2ec';});
+inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();send(inp.value);}
+});
+
+btn.addEventListener('pointerdown',function(e){
+    e.preventDefault();
+    isLong=false;
+    timer=setTimeout(function(){
+        isLong=true;
+        startMic();
+    },500);
+});
+
+btn.addEventListener('pointerup',function(e){
+    e.preventDefault();
+    clearTimeout(timer);
+    if(!isLong && !listening){
+        send(inp.value);
+    } else if(listening){
+        rec.stop();
+    }
+});
+
+btn.addEventListener('pointerleave',function(){clearTimeout(timer);});
+btn.addEventListener('pointercancel',function(){clearTimeout(timer);});
+btn.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+function send(text){
+    text=(text||'').trim();
+    if(!text)return;
+    inp.value='';
+    try {
+        var ta = window.parent.document.querySelector('[data-testid="stChatInput"] textarea');
+        if(ta){
+            var set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+            set.call(ta, text);
+            ta.dispatchEvent(new Event('input',{bubbles:true}));
+            setTimeout(function(){
+                ta.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));
+            },100);
+            stat.innerText='';
+        }
+    } catch(err) {
+        stat.innerText='Erreur envoi';
+        stat.style.color='#ef4444';
+    }
+}
+
+function startMic(){
+    if(!rec){stat.innerText='Micro non supporte';return;}
+    listening=true;
+    rec.start();
+    btn.style.background='#ef4444';
+    btn.style.boxShadow='0 0 0 6px rgba(239,68,68,0.2)';
+    icS.style.display='none';
+    icM.style.display='block';
+    stat.innerText='Parlez maintenant...';
+    stat.style.color='#ef4444';
+}
+
+function stopMic(){
+    listening=false;
+    btn.style.background='linear-gradient(135deg,#5b4cdb,#8b7ff5)';
+    btn.style.boxShadow='0 3px 12px rgba(91,76,219,0.3)';
+    icS.style.display='block';
+    icM.style.display='none';
+}
+
+setTimeout(function(){
+    stat.innerText='Maintenez pour dicter';
+    stat.style.color='#9490ad';
+    setTimeout(function(){stat.innerText='';},3000);
+},500);
+</script>

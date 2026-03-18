@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+    <title>{{ title }}</title>
+    <link rel="icon" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="login-body">
+    <script>if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark');</script>
+    <div class="login-container">
+        <img src="/static/ia_telecom.png" alt="Logo" class="login-logo">
+        <h1 class="login-title">{{ title }}</h1>
+        <p class="login-subtitle">Votre assistant réglementaire intelligent</p>
+
+        <div id="login-form" class="login-card">
+            <p class="form-label">Se connecter</p>
+            <input type="email" id="l-email" placeholder="Email" autocomplete="email">
+            <input type="password" id="l-pass" placeholder="Mot de passe" autocomplete="current-password">
+            <button onclick="doLogin()" class="btn-primary">Continuer</button>
+            <div id="l-error" class="error-msg"></div>
+            <button onclick="showRegister()" class="btn-link">Pas encore de compte ? S'inscrire</button>
+        </div>
+
+        <div id="register-form" class="login-card" style="display:none">
+            <p class="form-label">Créer un compte</p>
+            <input type="text" id="r-nom" placeholder="Nom">
+            <input type="text" id="r-prenom" placeholder="Prénom">
+            <input type="email" id="r-email" placeholder="Email">
+            <input type="password" id="r-pass" placeholder="Mot de passe (min. 4)">
+            <input type="password" id="r-pass2" placeholder="Confirmer le mot de passe">
+            <button onclick="doRegister()" class="btn-primary">S'inscrire</button>
+            <div id="r-error" class="error-msg"></div>
+            <div id="r-success" class="success-msg"></div>
+            <button onclick="showLogin()" class="btn-link">Déjà un compte ? Se connecter</button>
+        </div>
+
+        <p class="login-footer">Projet de mémoire — 2024/2025</p>
+    </div>
+
+    <script>
+    function showRegister(){ document.getElementById('login-form').style.display='none'; document.getElementById('register-form').style.display='block'; }
+    function showLogin(){ document.getElementById('register-form').style.display='none'; document.getElementById('login-form').style.display='block'; }
+
+    async function doLogin(){
+        const email=document.getElementById('l-email').value;
+        const pass=document.getElementById('l-pass').value;
+        const res=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+        const data=await res.json();
+        if(data.ok) window.location.href='/chat';
+        else document.getElementById('l-error').innerText=data.error;
+    }
+
+    async function doRegister(){
+        const d={nom:document.getElementById('r-nom').value,prenom:document.getElementById('r-prenom').value,
+            email:document.getElementById('r-email').value,password:document.getElementById('r-pass').value};
+        if(d.password!==document.getElementById('r-pass2').value){document.getElementById('r-error').innerText='Mots de passe différents';return;}
+        if(d.password.length<4){document.getElementById('r-error').innerText='Min. 4 caractères';return;}
+        const res=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+        const data=await res.json();
+        if(data.ok){document.getElementById('r-success').innerText='Compte créé !';setTimeout(showLogin,1000);}
+        else document.getElementById('r-error').innerText=data.error;
+    }
+
+    document.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){
+        if(document.getElementById('login-form').style.display!=='none')doLogin();else doRegister();
+    }}));
+    </script>
+</body>
+</html>

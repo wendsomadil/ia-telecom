@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+fid_env/
+venv/
+.env
+
+# Data (garder l'index FAISS)
+database.db
+feedback.csv
+static/audio/
+output/excel/
+output/json/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
